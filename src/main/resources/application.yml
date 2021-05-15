@@ -1,3 +1,14 @@
 server:
   port: 9090
   
+spring:
+  data:
+    cassandra:
+      ssl: true
+      contact-points:
+      - "rameshcosmosdb2.cassandra.cosmos.azure.com"
+      keyspace-name: "test"
+      password: MzSk5XBwhG8Tl9k3RClTo5QgVL7KUnim51DtW0rGVkwPsjhF0s9cNUm0WsBB0qNXPyJz6ZSydYmxe1gYMtKp9g==
+      port: 10350
+      local-datacenter: Central India
+      username: "rameshcosmosdb2"
