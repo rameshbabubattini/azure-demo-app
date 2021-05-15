@@ -1,0 +1,113 @@
+package info.code2learn.azuredemoapp.util;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.InputStream;
+import java.security.KeyStore;
+
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.TrustManagerFactory;
+
+import com.datastax.driver.core.Cluster;
+import com.datastax.driver.core.JdkSSLOptions;
+import com.datastax.driver.core.RemoteEndpointAwareJdkSSLOptions;
+import com.datastax.driver.core.Session;
+
+public class CassandraUtils {
+
+    private Cluster cluster;
+    private String cassandraHost = "test-db.cassandra.cosmos.azure.com";
+    private int cassandraPort = 10350;
+    private String cassandraUsername = "test-db";
+    private String cassandraPassword = "RA8oWryn6KOMQ4wFYDAThP7r1b2YbhdsxR6NlqoySwV0wOqyp2flqA8cslwuVt1Aq1DNK6uzzqeTmfLhsLUugw==";
+    private File sslKeyStoreFile = null;
+    private String sslKeyStorePassword = "changeit";
+
+
+    /**
+     * This method creates a Cassandra Session based on the the end-point details given in config.properties.
+     * This method validates the SSL certificate based on ssl_keystore_file_path & ssl_keystore_password properties.
+     * If ssl_keystore_file_path & ssl_keystore_password are not given then it uses 'cacerts' from JDK.
+     * @return Session Cassandra Session
+     */
+    public Session getSession() {
+
+        try {
+            //Load cassandra endpoint details from config.properties
+            loadCassandraConnectionDetails();
+
+            final KeyStore keyStore = KeyStore.getInstance("JKS");
+            try (final InputStream is = new FileInputStream(sslKeyStoreFile)) {
+                keyStore.load(is, sslKeyStorePassword.toCharArray());
+            }
+
+            final KeyManagerFactory kmf = KeyManagerFactory.getInstance(KeyManagerFactory
+                    .getDefaultAlgorithm());
+            kmf.init(keyStore, sslKeyStorePassword.toCharArray());
+            final TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory
+                    .getDefaultAlgorithm());
+            tmf.init(keyStore);
+
+            // Creates a socket factory for HttpsURLConnection using JKS contents.
+            final SSLContext sc = SSLContext.getInstance("TLSv1.2");
+            sc.init(kmf.getKeyManagers(), tmf.getTrustManagers(), new java.security.SecureRandom());
+
+            JdkSSLOptions sslOptions = RemoteEndpointAwareJdkSSLOptions.builder()
+                    .withSSLContext(sc)
+                    .build();
+            cluster = Cluster.builder()
+                    .addContactPoint(cassandraHost)
+                    .withPort(cassandraPort)
+                    .withCredentials(cassandraUsername, cassandraPassword)
+                    .withSSL(sslOptions)
+                    .build();
+
+            return cluster.connect();
+        } catch (Exception ex) {
+            ex.printStackTrace();
+        }
+        return null;
+    }
+
+    public Cluster getCluster() {
+        return cluster;
+    }
+
+    /**
+     * Closes the cluster and Cassandra session
+     */
+    public void close() {
+        cluster.close();
+    }
+    public class CasssandraUtils {
+
+    }
+
+    /**
+     * Loads Cassandra end-point details from config.properties.
+     * @throws Exception
+     */
+    private void loadCassandraConnectionDetails() throws Exception {
+        String ssl_keystore_file_path = null;
+        String ssl_keystore_password = "changeit";
+
+        // If ssl_keystore_file_path, build the path using JAVA_HOME directory.
+        if (ssl_keystore_file_path == null || ssl_keystore_file_path.isEmpty()) {
+            String javaHomeDirectory = System.getenv("JAVA_HOME");
+            if (javaHomeDirectory == null || javaHomeDirectory.isEmpty()) {
+                throw new Exception("JAVA_HOME not set");
+            }
+            ssl_keystore_file_path = new StringBuilder(javaHomeDirectory).append("/jre/lib/security/cacerts").toString();
+        }
+
+        sslKeyStorePassword = (ssl_keystore_password != null && !ssl_keystore_password.isEmpty()) ?
+                ssl_keystore_password : sslKeyStorePassword;
+
+        sslKeyStoreFile = new File(ssl_keystore_file_path);
+
+        if (!sslKeyStoreFile.exists() || !sslKeyStoreFile.canRead()) {
+            throw new Exception(String.format("Unable to access the SSL Key Store file from %s", ssl_keystore_file_path));
+        }
+    }
+} 
